@@ -1,0 +1,1023 @@
+
+```html
+<!DOCTYPE html>
+<!-- =====================================================================
+     تطبيق الثلاجة الذكية (Smart Fridge PWA)
+     ملف واحد متكامل (HTML + CSS + JavaScript) يعمل على جميع المتصفحات والجوالات
+     يدعم: الكاميرا، قراءة الباركود، قراءة تاريخ الانتهاء (OCR)، قاعدة بيانات مزدوجة،
+     إشعارات الصلاحية، قسم نصائح التغذية التفاعلي، وتثبيته كتطبيق (Home Screen).
+     ===================================================================== -->
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<!-- إعدادات التجاوب مع شاشات الجوال وحواف الآيفون (Safe Area) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<!-- إعدادات تحويل الموقع إلى تطبيق شاشة رئيسية (PWA) في آيفون وأندرويد -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="الثلاجة الذكية">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b8f6a">
+
+<title>الثلاجة الذكية</title>
+
+<!-- خط "تجوال" العربي من خطوط جوجل -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
+
+<!-- مكتبة ZXing لقراءة الباركود عبر الكاميرا أو الصور في جميع المتصفحات -->
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+
+<!-- مكتبة Tesseract.js للتعرف الضوئي على الحروف والأرقام (OCR) لقراءة تاريخ الانتهاء من الصور -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+
+<style>
+/* ==================== المتغيرات والألوان (الوضع الفاتح والليلي تلقائياً) ==================== */
+:root{--bg:#f2f6f4;--sf:#fff;--ink:#0e1d19;--mut:#64786f;--line:#e0e8e5;--brand:#0b8f6a;--on:#fff;--ok:#0b8f6a;--okb:#dff4ec;--warn:#a65d08;--warnb:#fcefd0;--bad:#bf3326;--badb:#fce4e0;--h1:#0c9a72;--h2:#075c47;--sh:0 1px 2px #0e1d190d,0 8px 24px #0e1d1910;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a1311;--sf:#12201c;--ink:#e8f3ef;--mut:#8aa199;--line:#223530;--brand:#2fcf9f;--on:#04211a;--ok:#46d5ab;--okb:#0f3328;--warn:#f2b552;--warnb:#392c10;--bad:#ff8277;--badb:#3a1b18;--h1:#0f7d5f;--h2:#08382d;--sh:0 1px 2px #0006;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0a1311;--sf:#12201c;--ink:#e8f3ef;--mut:#8aa199;--line:#223530;--brand:#2fcf9f;--on:#04211a;--ok:#46d5ab;--okb:#0f3328;--warn:#f2b552;--warnb:#392c10;--bad:#ff8277;--badb:#3a1b18;--h1:#0f7d5f;--h2:#08382d;--sh:0 1px 2px #0006;color-scheme:dark}
+
+/* ==================== التنسيقات العامة وتصميم البطاقات والأزرار ==================== */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}[hidden]{display:none!important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Tajawal","Segoe UI",Tahoma,system-ui,sans-serif}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:25}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px max(16px,calc((100% - 568px)/2))}
+.top-brand{display:flex;align-items:center;gap:12px}
+.top-actions{display:flex;align-items:center;gap:6px}
+.logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,var(--h1),var(--h2));color:#fff;display:grid;place-items:center;flex:none}
+.top h1{font-size:19px;font-weight:800;margin:0;line-height:1.2}.top p{margin:0;font-size:12.5px;color:var(--mut)}
+.pill-btn{border:1px solid var(--line);background:var(--sf);border-radius:12px;padding:7px 11px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px;color:var(--ink)}
+.pill-btn.on{background:var(--okb);color:var(--ok);border-color:transparent}
+.pill-btn.warn{background:var(--warnb);color:var(--warn);border-color:transparent}
+main{max-width:600px;margin:0 auto;padding:4px 16px 128px}
+.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.hero{background:linear-gradient(135deg,var(--h1),var(--h2));color:#fff;border-radius:22px;padding:18px;box-shadow:var(--sh);margin-bottom:14px}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.db-badge{background:#ffffff24;color:#fff;border-radius:99px;padding:4px 10px;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px}
+.hl{font-size:13px;opacity:.85}.hn{font-size:44px;font-weight:800;line-height:1.1}.hn small{font-size:16px;font-weight:500;margin-inline-start:6px;opacity:.85}
+.hs{font-size:14px;margin:4px 0 14px;min-height:21px}
+.bar{display:flex;gap:4px;height:8px;border-radius:9px;overflow:hidden;background:#ffffff26}
+.bar i{display:block}.bar .bad{background:#ff8f84}.bar .warn{background:#ffd27a}.bar .ok{background:#a8f0cf}
+.alert-card{background:var(--warnb);color:var(--warn);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px;font-weight:700}
+.seg{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;scrollbar-width:none}
+.seg button{border:1px solid var(--line);background:var(--sf);border-radius:99px;padding:7px 14px;font-size:14px;font-weight:500;white-space:nowrap;color:var(--mut)}
+.seg button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.search{position:relative;margin-bottom:12px}.search .ic{position:absolute;inset-inline-start:13px;top:14px;color:var(--mut);width:20px;height:20px}.search input{padding-inline-start:42px}
+input,select{width:100%;height:48px;padding:0 14px;border:1px solid var(--line);border-radius:13px;background:var(--sf)}
+input:focus,select:focus{outline:2px solid var(--brand);outline-offset:1px}
+.it{display:flex;align-items:center;gap:12px;background:var(--sf);border:1px solid var(--line);border-radius:18px;padding:11px 12px;margin-bottom:9px;box-shadow:var(--sh)}
+.dn{min-width:66px;text-align:center;border-radius:14px;padding:8px 6px;background:var(--okb);color:var(--ok)}
+.dn b{display:block;font-size:19px;font-weight:800;line-height:1.2}.dn small{font-size:11.5px;font-weight:500}
+.it.warn .dn{background:var(--warnb);color:var(--warn)}.it.bad .dn{background:var(--badb);color:var(--bad)}
+.inf{flex:1;min-width:0}.nm{font-weight:700;overflow-wrap:anywhere;line-height:1.35}
+.mt{font-size:12.5px;color:var(--mut);display:flex;gap:4px 10px;flex-wrap:wrap;margin-top:2px}.bc{direction:ltr}
+.ib{border:0;background:none;color:var(--mut);width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none}
+.ib:active{background:var(--bg)}
+.av{width:46px;height:46px;border-radius:14px;background:var(--okb);color:var(--ok);display:grid;place-items:center;font-weight:800;font-size:19px;flex:none}
+.empty{text-align:center;color:var(--mut);padding:34px 12px;background:var(--sf);border:1px dashed var(--line);border-radius:18px}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin:6px 2px 10px}.sec h2{font-size:18px;margin:0}.sec span{color:var(--mut);font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);background:var(--sf);border-radius:13px;padding:11px 14px;font-weight:700;font-size:14px}
+.btn.g{background:var(--okb);color:var(--ok);border-color:transparent}
+.btn.w{background:var(--warnb);color:var(--warn);border-color:transparent}
+.btn.p{background:var(--brand);color:var(--on);border-color:transparent;width:100%;padding:15px;font-size:16px;margin-top:16px}
+.card{background:var(--sf);border:1px solid var(--line);border-radius:18px;padding:15px;margin-bottom:12px;box-shadow:var(--sh)}
+.card h3{margin:0 0 6px;font-size:16px;font-weight:800}
+.card p{margin:0 0 10px;font-size:13.5px;color:var(--mut)}
+.nav{position:fixed;inset:auto 0 0;z-index:30;background:var(--sf);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px))}
+.nav button[data-tab]{border:0;background:none;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:700;padding:4px 12px}
+.nav button.on{color:var(--brand)}
+.fab{width:58px;height:58px;border-radius:20px;border:0;background:linear-gradient(135deg,var(--h1),var(--h2));color:#fff;display:grid;place-items:center;margin-top:-30px;box-shadow:0 8px 20px #0b8f6a55}
+.fab .ic{width:28px;height:28px;stroke-width:2.2}
+#sheet{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+.shi{max-width:600px;margin:0 auto;padding:14px 16px 40px}
+.shh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.shh b{font-size:19px;font-weight:800}
+.cam{position:relative;border-radius:20px;overflow:hidden;background:#000;aspect-ratio:4/3;margin-bottom:10px}
+.cam video,.cam img{width:100%;height:100%;object-fit:cover;display:block}
+.fr{position:absolute;inset:18% 10%;border:2px solid #fffb;border-radius:16px;box-shadow:0 0 0 999px #0006;pointer-events:none}
+.fr::after{content:"";position:absolute;left:6px;right:6px;height:2px;background:#3ee8b0;animation:sc 1.8s ease-in-out infinite alternate}
+@keyframes sc{from{top:8%}to{top:90%}}
+.stt{background:var(--okb);color:var(--ok);border-radius:13px;padding:10px 13px;font-size:14px;font-weight:500;margin-bottom:10px;line-height:1.45}
+label{display:block;font-size:13px;font-weight:700;color:var(--mut);margin:14px 2px 6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.chip{border:1px solid var(--line);background:var(--sf);border-radius:99px;padding:6px 13px;font-size:13.5px;font-weight:500}
+.chip.l{background:var(--okb);color:var(--ok);border-color:transparent;font-weight:700}
+#toast{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;font-size:14px;font-weight:500;z-index:60;max-width:90%;text-align:center;box-shadow:var(--sh)}
+.step-list{margin:0;padding-inline-start:18px;font-size:13.5px;color:var(--ink)}
+.step-list li{margin-bottom:6px}
+.qty-row{display:flex;gap:8px;align-items:center}
+.qty-row input{width:90px;text-align:center}
+/* تنسيقات قسم نصائح التغذية التفاعلي */
+.tip-hero{background:linear-gradient(135deg,#0b8f6a,#11698e);color:#fff;border-radius:20px;padding:16px;margin-bottom:12px;box-shadow:var(--sh)}
+.tip-hero h3{margin:0 0 6px;font-size:17px;font-weight:800;display:flex;align-items:center;gap:6px}
+.tip-hero p{margin:0;font-size:14px;line-height:1.5;opacity:.95}
+.quiz-box{background:var(--sf);border:1px solid var(--line);border-radius:18px;padding:15px;margin-bottom:12px;box-shadow:var(--sh)}
+.quiz-q{font-size:15px;font-weight:700;margin:8px 0 12px;line-height:1.45}
+.quiz-ans{padding:10px 12px;border-radius:12px;font-size:13.5px;margin-top:10px;line-height:1.45}
+.quiz-ans.ok{background:var(--okb);color:var(--ok)}
+.quiz-ans.bad{background:var(--badb);color:var(--bad)}
+.water-bar{display:flex;gap:6px;margin:10px 0}
+.cup{flex:1;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--bg);display:grid;place-items:center;font-size:15px;transition:transform .15s,background .2s;cursor:pointer}
+.cup.on{background:#dff4ec;border-color:#0b8f6a;transform:translateY(-2px)}
+:root[data-theme="dark"] .cup.on{background:#0f3328;border-color:#46d5ab}
+</style>
+</head>
+<body>
+<!-- ==================== الأيقونات الرسومية المدمجة (SVG Icons) ==================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-fridge" viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="3"/><path d="M5 10.5h14M9 6.5v1.5M9 13.5v3"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="7" ry="3"/><path d="M5 5.5v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6M5 11.5v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></symbol>
+<symbol id="i-cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+<symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.4 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z"/><path d="M2 21c0-3 1.8-5.4 5.1-6C9.5 14.5 12 13 13 12"/></symbol>
+</svg>
+
+<!-- ==================== الشريط العلوي (Header) ==================== -->
+<header class="top">
+  <div class="top-brand">
+    <div class="logo"><svg class="ic"><use href="#i-fridge"/></svg></div>
+    <div><h1>الثلاجة الذكية</h1><p id="today"></p></div>
+  </div>
+  <div class="top-actions">
+    <button class="pill-btn" id="bBell" aria-label="الإشعارات"><svg class="ic" style="width:18px;height:18px"><use href="#i-bell"/></svg><span id="bellTxt">تفعيل التنبيهات</span></button>
+  </div>
+</header>
+
+<main>
+<!-- ==================== التبويب الأول: محتويات الثلاجة الحالية ==================== -->
+<section id="v-fridge">
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="hl">في ثلاجتك</div>
+        <div class="hn"><span id="hn">0</span><small>منتج</small></div>
+      </div>
+      <div class="db-badge" id="dbStat">✓ حفظ تلقائي آمن</div>
+    </div>
+    <div class="hs" id="hs"></div>
+    <div class="bar" id="bar"></div>
+  </div>
+  <div class="alert-card" id="expBanner" hidden>
+    <span id="expBannerTxt"></span>
+    <button class="btn w" id="bCalQuick" style="padding:7px 11px;font-size:12.5px"><svg class="ic" style="width:17px;height:17px"><use href="#i-cal"/></svg>تذكير بالتقويم</button>
+  </div>
+  <div class="seg" id="seg"></div>
+  <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="q" placeholder="ابحث باسم المنتج أو الباركود"></div>
+  <div id="list"></div>
+</section>
+
+<!-- ==================== التبويب الثاني: قاعدة بيانات المنتجات المحفوظة ==================== -->
+<section id="v-db" hidden>
+  <div class="sec"><h2>قاعدة المنتجات المحفوظة</h2><span id="pc"></span></div>
+  <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="pq" placeholder="ابحث في القاعدة بالاسم أو الباركود"></div>
+  <div class="row" style="margin-bottom:12px">
+    <button class="btn g" id="bSeed">+ إضافة منتجات استهلاكية شائعة</button>
+    <button class="btn" id="bExp">تصدير نسخة احتياطية</button>
+    <button class="btn" id="bImp">استيراد</button>
+  </div>
+  <input type="file" id="impf" accept="application/json,.json" hidden>
+  <div id="plst"></div>
+</section>
+
+<!-- ==================== التبويب الثالث: قسم نصائح التغذية التفاعلي والممتع ==================== -->
+<section id="v-tips" hidden>
+  <div class="sec"><h2>نصائح التغذية الذكية</h2><span id="quizScoreBadge">نقاطك الصحية: 0 🌟</span></div>
+
+  <!-- بطاقة اقتراح ذكي مرتبط بمنتجات ثلاجتك الحالية -->
+  <div class="tip-hero">
+    <h3>🥗 نصيحة اليوم حسب محتويات ثلاجتك</h3>
+    <p id="smartFridgeTip">أضف منتجات لثلاجتك ليقترح عليك التطبيق أفكاراً صحية لاستغلالها قبل انتهاء صلاحيتها!</p>
+  </div>
+
+  <!-- عداد شرب الماء التفاعلي اليومي -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>💧 عداد شرب الماء اليومي</h3>
+      <span id="waterTxt" style="font-size:13px;font-weight:700;color:var(--brand)">0 / 8 أكواب</span>
+    </div>
+    <p>اضغط على الأكواب لتسجيل شربك للماء اليوم (الهدف: 8 أكواب = 2 لتر):</p>
+    <div class="water-bar" id="waterCups"></div>
+  </div>
+
+  <!-- تحدي التغذية التفاعلي (صح أم خطأ) -->
+  <div class="quiz-box">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:15.5px">🎯 تحدي التغذية: صح أم خطأ؟</b>
+      <button class="btn" id="bNextQuiz" style="padding:6px 11px;font-size:12.5px">سؤال آخر ↻</button>
+    </div>
+    <div class="quiz-q" id="quizQ"></div>
+    <div class="row">
+      <button class="btn g" id="bQuizTrue" style="flex:1">صح ✓</button>
+      <button class="btn w" id="bQuizFalse" style="flex:1">خطأ ✗</button>
+    </div>
+    <div id="quizFeedback" class="quiz-ans" hidden></div>
+  </div>
+
+  <!-- فلاتر وبطاقات النصائح الغذائية المتنوعة -->
+  <div class="sec"><h2>موسوعة النصائح السريعة</h2><button class="btn" id="bRandTip" style="padding:6px 11px;font-size:12.5px">🎲 نصيحة عشوائية</button></div>
+  <div class="seg" id="tipSeg"></div>
+  <div id="tipsList"></div>
+</section>
+
+<!-- ==================== التبويب الرابع: إعدادات الإشعارات والتنبيهات ==================== -->
+<section id="v-settings" hidden>
+  <div class="sec"><h2>إعدادات التنبيهات</h2><span>الإشعارات</span></div>
+  <div class="card">
+    <h3>🔔 إشعارات قرب انتهاء الصلاحية</h3>
+    <p id="notifDesc">فعّل الإشعارات ليصلك تنبيه تلقائي بالمنتجات المنتهية أو التي تنتهي قريباً عند فتح التطبيق أو في الخلفية.</p>
+    <label for="warnDays">التنبيه قبل انتهاء الصلاحية بـ:</label>
+    <select id="warnDays">
+      <option value="1">يوم واحد</option>
+      <option value="2">يومين</option>
+      <option value="3" selected>3 أيام (موصى به)</option>
+      <option value="5">5 أيام</option>
+      <option value="7">أسبوع كامل (7 أيام)</option>
+    </select>
+    <div class="row" style="margin-top:12px">
+      <button class="btn g" id="bReqNotif"><svg class="ic"><use href="#i-bell"/></svg>تفعيل إشعارات المتصفح</button>
+      <button class="btn" id="bTestNotif">تجربة إشعار فوري</button>
+      <button class="btn" id="bExportICS"><svg class="ic"><use href="#i-cal"/></svg>إضافة تنبيهات لتقويم الجوال</button>
+    </div>
+  </div>
+
+</section>
+</main>
+
+<!-- ==================== شريط التنقل السفلي (Bottom Navigation) ==================== -->
+<nav class="nav">
+  <button data-tab="fridge" class="on"><svg class="ic"><use href="#i-fridge"/></svg>الثلاجة</button>
+  <button data-tab="db"><svg class="ic"><use href="#i-db"/></svg>المنتجات</button>
+  <button class="fab" id="fab" aria-label="إضافة منتج"><svg class="ic"><use href="#i-plus"/></svg></button>
+  <button data-tab="tips"><svg class="ic"><use href="#i-leaf"/></svg>التغذية</button>
+  <button data-tab="settings"><svg class="ic"><use href="#i-bell"/></svg>التنبيهات</button>
+</nav>
+
+<!-- ==================== نافذة إضافة منتج (الكاميرا + الباركود + التاريخ) ==================== -->
+<div id="sheet" hidden><div class="shi">
+  <div class="shh"><b>إضافة منتج للثلاجة</b><button class="btn" id="bX">إغلاق</button></div>
+  <div class="cam" id="cam" hidden>
+    <video id="vid" playsinline muted></video>
+    <img id="snapPreview" alt="معاينة الصورة" hidden>
+    <div class="fr"></div>
+  </div>
+  <div class="stt" id="stt"></div>
+  <div class="row">
+    <button class="btn g" id="bCam"><svg class="ic"><use href="#i-cam"/></svg>تشغيل الكاميرا</button>
+    <button class="btn g" id="bShot" hidden><svg class="ic"><use href="#i-spark"/></svg>التقاط التاريخ والباركود</button>
+    <button class="btn" id="bNat"><svg class="ic"><use href="#i-cam"/></svg>صوّر بكاميرا الجوال / صورة</button>
+  </div>
+  <input type="file" id="file" accept="image/*" capture="environment" hidden>
+
+  <label for="bc">الباركود (يُقرأ بالكاميرا أو يُبحث تلقائياً)</label>
+  <div class="row" style="flex-wrap:nowrap">
+    <input id="bc" inputmode="numeric" dir="ltr" placeholder="مثال: 6281007001236">
+    <button class="btn" id="bLookup" style="white-space:nowrap">جلب الاسم</button>
+  </div>
+
+  <label for="nm">اسم المنتج</label>
+  <input id="nm" list="pnames" autocomplete="off" placeholder="مثال: حليب المراعي كامل الدسم">
+  <datalist id="pnames"></datalist>
+
+  <div class="row" style="align-items:flex-end;margin-top:6px">
+    <div style="flex:1">
+      <label for="ex">تاريخ الانتهاء</label>
+      <input id="ex" type="date">
+    </div>
+    <div style="width:105px">
+      <label for="qty">الكمية</label>
+      <input id="qty" type="number" min="1" max="99" value="1">
+    </div>
+  </div>
+
+  <div class="chips" id="chips">
+    <button class="chip l" id="lifechip" data-d="0" hidden></button>
+    <button class="chip" data-d="3">3 أيام</button>
+    <button class="chip" data-d="7">أسبوع</button>
+    <button class="chip" data-d="14">أسبوعان</button>
+    <button class="chip" data-d="30">شهر</button>
+    <button class="chip" data-d="90">3 أشهر</button>
+  </div>
+  <button class="btn p" id="bAdd">إضافة للثلاجة وحفظ بالقاعدة</button>
+</div></div>
+
+<!-- إشعار منبثق أسفل الشاشة (Toast) -->
+<div id="toast" hidden></div>
+
+<script>
+/* ============================================================================
+   1. المتغيرات الأساسية والدوال المساعدة (Helper Functions)
+   ============================================================================ */
+var $=function(i){return document.getElementById(i)},KEY='smart-fridge-v1',DB_NAME='SmartFridgeDB';
+var S={items:[],products:{},warnDays:3,water:0,waterDate:'',score:0},filter='all',q='',pq='',tipCat='all',quizIdx=0;
+
+// حماية النصوص من الرموز الخاصة عند العرض في HTML
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+// إظهار رسالة سريعة أسفل الشاشة لمدة 3 ثوانٍ
+function toast(m){var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true},3000)}
+
+// استدعاء أيقونة SVG بالاسم
+function ic(n){return'<svg class="ic"><use href="#i-'+n+'"/></svg>'}
+
+// تحويل كائن التاريخ إلى صيغة قياسية YYYY-MM-DD
+function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+
+// تحويل الأرقام العربية المشرقية (٠١٢٣...) أو الفارسية إلى أرقام إنجليزية قياسية (0123...)
+function toLatinDigits(s){return String(s||'').replace(/[٠-٩]/g,function(d){return'٠١٢٣٤٥٦٧٨٩'.indexOf(d)}).replace(/[۰-۹]/g,function(d){return'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)})}
+
+/* ============================================================================
+   2. تهيئة تطبيق الشاشة الرئيسية (PWA Manifest & App Icon)
+   يجعل الموقع يظهر بأيقونة مستقلة وبدون شريط عنوان المتصفح عند إضافته للشاشة الرئيسية
+   ============================================================================ */
+(function initPWA(){
+  try{
+    var svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="42" fill="#0b8f6a"/><rect x="52" y="28" width="88" height="136" rx="16" fill="none" stroke="#fff" stroke-width="12"/><path d="M52 88h88M74 56v14M74 108v24" stroke="#fff" stroke-width="12" stroke-linecap="round"/></svg>';
+    var iconUrl='data:image/svg+xml;utf8,'+encodeURIComponent(svg);
+    var appleLink=document.createElement('link');appleLink.rel='apple-touch-icon';appleLink.href=iconUrl;document.head.appendChild(appleLink);
+    var manifest={name:'الثلاجة الذكية',short_name:'الثلاجة',dir:'rtl',lang:'ar',display:'standalone',background_color:'#f2f6f4',theme_color:'#0b8f6a',icons:[{src:iconUrl,sizes:'192x192',type:'image/svg+xml'}]};
+    var mLink=document.createElement('link');mLink.rel='manifest';mLink.href='data:application/manifest+json;utf8,'+encodeURIComponent(JSON.stringify(manifest));document.head.appendChild(mLink);
+  }catch(e){}
+})();
+
+/* ============================================================================
+   3. قاعدة البيانات المزدوجة (LocalStorage + IndexedDB)
+   تحفظ منتجات الثلاجة وقاعدة المنتجات تلقائياً في مكانين لضمان عدم ضياعها أبداً
+   ============================================================================ */
+function pk(p){return p.barcode||'n:'+p.name}
+function norm(d){
+  d=d||{};var P={},src=d.products||[];
+  (Array.isArray(src)?src:Object.keys(src).map(function(k){return src[k]})).forEach(function(p){if(p&&p.name)P[pk(p)]=p});
+  if(d.names)Object.keys(d.names).forEach(function(b){if(!P[b])P[b]={name:d.names[b],barcode:b,life:0,n:1}});
+  var todayIso=iso(new Date());return{items:Array.isArray(d.items)?d.items:[],products:P,warnDays:Number(d.warnDays)||3,water:d.waterDate===todayIso?(Number(d.water)||0):0,waterDate:todayIso,score:Number(d.score)||0};
+}
+function pack(){return{items:S.items,products:Object.keys(S.products).map(function(k){return S.products[k]}),warnDays:S.warnDays||3,water:S.water||0,waterDate:S.waterDate||iso(new Date()),score:S.score||0,updatedAt:Date.now()}}
+
+// فتح قاعدة بيانات IndexedDB في المتصفح
+function openIDB(){
+  return new Promise(function(res,rej){
+    if(!window.indexedDB)return rej('no-idb');
+    var req=indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded=function(e){e.target.result.createObjectStore('state')};
+    req.onsuccess=function(e){res(e.target.result)};
+    req.onerror=function(){rej('idb-err')};
+  });
+}
+function saveIDB(data){
+  openIDB().then(function(db){
+    var tx=db.transaction('state','readwrite');
+    tx.objectStore('state').put(data,'main');
+  }).catch(function(){});
+}
+function loadIDB(){
+  return openIDB().then(function(db){
+    return new Promise(function(res){
+      var tx=db.transaction('state','readonly');
+      var r=tx.objectStore('state').get('main');
+      r.onsuccess=function(){res(r.result||null)};
+      r.onerror=function(){res(null)};
+    });
+  }).catch(function(){return null});
+}
+
+// قراءة البيانات عند فتح التطبيق
+try{var raw=localStorage.getItem(KEY);if(raw)S=norm(JSON.parse(raw))}catch(e){}
+loadIDB().then(function(idbData){
+  if(idbData&&(!S.items.length&&!Object.keys(S.products).length)){
+    S=norm(idbData);
+    try{localStorage.setItem(KEY,JSON.stringify(pack()))}catch(e){}
+    render();
+  }
+});
+
+// دالة الحفظ الفوري في كل من LocalStorage و IndexedDB
+function save(){
+  var data=pack();
+  try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}
+  saveIDB(data);
+  var badge=$('dbStat');
+  if(badge){badge.textContent='✓ تم الحفظ بالقاعدة';setTimeout(function(){badge.textContent='✓ حفظ تلقائي آمن'},1800)}
+}
+
+function byName(n){for(var k in S.products)if(S.products[k].name===n)return S.products[k]}
+function okEAN(s){if(!/^(\d{8}|\d{12,13})$/.test(s))return false;var d=s.split('').map(Number),c=d.pop(),t=0;d.reverse().forEach(function(x,i){t+=i%2?x:x*3});return(10-t%10)%10===c}
+
+/* ============================================================================
+   4. حساب التواريخ والأيام المتبقية على انتهاء الصلاحية
+   ============================================================================ */
+function parseD(s){var a=String(s).split('-');return new Date(+a[0],+a[1]-1,+a[2])}
+function daysLeft(s){var n=new Date();n.setHours(0,0,0,0);return Math.round((parseD(s)-n)/864e5)}
+function fmtD(s){return parseD(s).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'short',year:'numeric'})}
+function dayWord(n){return n===1?'يوم':n===2?'يومان':(n>=3&&n<=10)?n+' أيام':n+' يوم'}
+function label(d){return d<0?(d===-1?'منتهي أمس':'منتهي منذ '+dayWord(-d)):d===0?'ينتهي اليوم':d===1?'ينتهي غداً':'باقي '+dayWord(d)}
+function dn(d){return d<0?['منتهي',d===-1?'أمس':'منذ '+dayWord(-d)]:d===0?['اليوم','ينتهي']:d===1?['غداً','ينتهي']:d===2?['يومان','باقي']:[d,d<=10?'أيام':'يوماً']}
+function cls(d){return d<0?'bad':d<=(S.warnDays||3)?'warn':'ok'}
+
+/* ============================================================================
+   5. رسم وتحديث الواجهة (Render UI)
+   ============================================================================ */
+function render(){
+  $('warnDays').value=String(S.warnDays||3);
+  var a=S.items.map(function(i){var d=daysLeft(i.expiry);return{i:i,d:d,k:cls(d)}}).sort(function(x,y){return x.d-y.d});
+  var c={bad:0,warn:0,ok:0};a.forEach(function(x){c[x.k]++});
+  $('hn').textContent=a.length;
+  $('hs').textContent=a.length?'أقرب انتهاء: '+a[0].i.name+' · '+label(a[0].d):'أضف أول منتج بالضغط على زر + بالأسفل';
+  $('bar').innerHTML=a.length?['bad','warn','ok'].map(function(k){return'<i class="'+k+'" style="flex:'+c[k]+'"></i>'}).join(''):'';
+
+  var urgent=c.bad+c.warn;
+  if(urgent>0){
+    $('expBanner').hidden=false;
+    $('expBannerTxt').textContent='⚠️ لديك '+(c.bad?c.bad+' منتهي':'')+(c.bad&&c.warn?' و ':'')+(c.warn?c.warn+' قريب الانتهاء':'');
+  }else{
+    $('expBanner').hidden=true;
+  }
+
+  $('seg').innerHTML=[['all','الكل',a.length],['bad','منتهية',c.bad],['warn','قريبة',c.warn],['ok','سليمة',c.ok]].map(function(s){return'<button data-f="'+s[0]+'"'+(filter===s[0]?' class="on"':'')+'>'+s[1]+' '+s[2]+'</button>'}).join('');
+  var s=a.filter(function(x){return(filter==='all'||x.k===filter)&&(!q||(x.i.name+' '+(x.i.barcode||'')).indexOf(q)>-1)});
+  $('list').innerHTML=s.length?s.map(function(x){var t=dn(x.d),qty=x.i.qty&&x.i.qty>1?' ×'+x.i.qty:'';
+    return'<div class="it '+x.k+'"><div class="dn"><b>'+t[0]+'</b><small>'+t[1]+'</small></div><div class="inf"><div class="nm">'+esc(x.i.name)+esc(qty)+'</div><div class="mt"><span>📅 '+fmtD(x.i.expiry)+'</span>'+(x.i.barcode?'<span class="bc">#'+esc(x.i.barcode)+'</span>':'')+'</div></div><button class="ib" data-cal="'+esc(x.i.id)+'" title="تذكير بالتقويم" aria-label="تذكير بالتقويم">'+ic('cal')+'</button><button class="ib" data-del="'+esc(x.i.id)+'" aria-label="حذف">'+ic('trash')+'</button></div>'}).join(''):'<div class="empty">'+(a.length?'لا توجد نتائج مطابقة للبحث.':'الثلاجة فارغة حالياً 🧊<br><small>اضغط على زر + لإضافة منتجاتك بالباركود أو التصوير</small>')+'</div>';
+
+  var ks=Object.keys(S.products);$('pc').textContent=ks.length+' منتج محفوظ';
+  var f=ks.filter(function(k){var p=S.products[k];return!pq||(p.name+' '+(p.barcode||'')).indexOf(pq)>-1}).sort(function(x,y){return S.products[x].name.localeCompare(S.products[y].name,'ar')});
+  $('plst').innerHTML=f.length?f.map(function(k){var p=S.products[k];
+    return'<div class="it"><div class="av">'+esc(p.name.charAt(0))+'</div><div class="inf"><div class="nm">'+esc(p.name)+'</div><div class="mt">'+(p.barcode?'<span class="bc">#'+esc(p.barcode)+'</span>':'<span>بدون باركود</span>')+(p.life?'<span>الصلاحية المعتادة '+dayWord(p.life)+'</span>':'')+'<span>أُضيف '+(p.n||1)+' مرة</span></div></div><button class="ib" data-add="'+esc(k)+'" aria-label="إضافة للثلاجة">'+ic('plus')+'</button><button class="ib" data-pdel="'+esc(k)+'" aria-label="حذف من القاعدة">'+ic('trash')+'</button></div>'}).join(''):'<div class="empty">'+(ks.length?'لا توجد نتائج مطابقة.':'القاعدة فارغة. كل منتج تضيفه يُحفظ هنا تلقائياً، أو اضغط «إضافة منتجات استهلاكية شائعة».')+'</div>';
+  $('pnames').innerHTML=ks.map(function(k){return'<option value="'+esc(S.products[k].name)+'">'}).join('');
+  updateBellUI();
+  renderTips();
+}
+
+$('seg').onclick=function(e){var b=e.target.closest('[data-f]');if(b){filter=b.dataset.f;render()}};
+$('q').oninput=function(){q=this.value.trim();render()};
+$('pq').oninput=function(){pq=this.value.trim();render()};
+$('list').onclick=function(e){
+  var b=e.target.closest('[data-del]'),cal=e.target.closest('[data-cal]');
+  if(b){S.items=S.items.filter(function(i){return i.id!==b.dataset.del});save();render();toast('تم حذف المنتج من الثلاجة')}
+  if(cal){var item=S.items.find(function(i){return i.id===cal.dataset.cal});if(item)downloadICS([item])}
+};
+$('plst').onclick=function(e){
+  var a=e.target.closest('[data-add]'),d=e.target.closest('[data-pdel]');
+  if(a)openSheet(S.products[a.dataset.add]);
+  if(d){delete S.products[d.dataset.pdel];save();render();toast('تم الحذف من قاعدة المنتجات')}
+};
+
+function tab(t){
+  ['fridge','db','tips','settings'].forEach(function(x){
+    $('v-'+x).hidden=x!==t;
+    var btn=document.querySelector('[data-tab="'+x+'"]');
+    if(btn)btn.classList.toggle('on',x===t);
+  });
+  if(t==='tips')renderTips();
+  window.scrollTo(0,0);
+}
+document.querySelector('.nav').onclick=function(e){var b=e.target.closest('[data-tab]');if(b)tab(b.dataset.tab)};
+
+/* ============================================================================
+   6. تعبئة منتجات استهلاكية شائعة بضغطة زر
+   ============================================================================ */
+$('bSeed').onclick=function(){
+  var common=[
+    {name:'حليب المراعي كامل الدسم 2 لتر',barcode:'6281007000116',life:7,n:1},
+    {name:'لبن المراعي طازج 2 لتر',barcode:'6281007000215',life:10,n:1},
+    {name:'زبادي المراعي طازج 170 جم',barcode:'6281007000413',life:14,n:1},
+    {name:'طبق بيض طازج (30 حبة)',barcode:'6281000001011',life:21,n:1},
+    {name:'جبنة كريم قابل للدهن 500 جم',barcode:'6281007001557',life:60,n:1},
+    {name:'دجاج مبرد طازج 1000 جم',barcode:'6281018000129',life:5,n:1},
+    {name:'عصير برتقال طازج 1.5 لتر',barcode:'6281007003124',life:10,n:1},
+    {name:'خبز توست أبيض',barcode:'6281007005012',life:6,n:1}
+  ];
+  common.forEach(function(p){if(!S.products[pk(p)])S.products[pk(p)]=p});
+  save();render();toast('تمت إضافة 8 منتجات شائعة للقاعدة ✓');
+};
+
+/* ============================================================================
+   7. إضافة منتج جديد + البحث عن اسم المنتج بالباركود عبر OpenFoodFacts
+   ============================================================================ */
+function showLife(p){var b=$('lifechip');if(p&&p.life>0){b.hidden=false;b.dataset.d=p.life;b.textContent='نفس المدة المعتادة · '+dayWord(p.life)}else b.hidden=true}
+function setStat(m){$('stt').textContent=m}
+function useProduct(p){
+  $('nm').value=p.name;
+  if(p.barcode)$('bc').value=p.barcode;
+  showLife(p);
+  if(p.life>0&&!$('ex').value){
+    var d=new Date();d.setDate(d.getDate()+p.life);$('ex').value=iso(d);
+  }
+}
+
+// البحث عن اسم المنتج عبر الإنترنت إذا لم يكن محفوظاً في القاعدة المحلية
+async function lookupBarcodeOnline(code){
+  code=toLatinDigits(code).replace(/\D/g,'');
+  if(!code)return null;
+  if(S.products[code]){useProduct(S.products[code]);return S.products[code].name}
+  try{
+    setStat('⏳ جارٍ البحث عن الباركود '+code+' في قاعدة البيانات العالمية…');
+    var res=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json?fields=product_name,product_name_ar,brands');
+    if(!res.ok)return null;
+    var data=await res.json();
+    if(data&&data.status===1&&data.product){
+      var nm=data.product.product_name_ar||data.product.product_name||'';
+      var br=data.product.brands?data.product.brands.split(',')[0].trim():'';
+      var full=(nm+(br&&nm.indexOf(br)===-1?' - '+br:'')).trim();
+      if(full){
+        $('nm').value=full;
+        setStat('✓ تم العثور على المنتج: '+full+' — حدد تاريخ الانتهاء أو صوّره بالكاميرا.');
+        return full;
+      }
+    }
+  }catch(e){}
+  return null;
+}
+
+$('bLookup').onclick=async function(){
+  var code=toLatinDigits($('bc').value).trim();
+  if(!code){toast('اكتب رقم الباركود أولاً');return}
+  var found=await lookupBarcodeOnline(code);
+  if(!found)setStat('لم يُعثر على اسم مسجل لهذا الباركود، اكتب الاسم يدوياً وسيُحفظ في قاعدتك.');
+};
+
+function openSheet(p){
+  $('sheet').hidden=false;document.body.style.overflow='hidden';
+  $('bc').value=$('nm').value=$('ex').value='';$('qty').value='1';
+  $('snapPreview').hidden=true;showLife(null);
+  if(p){useProduct(p);setStat('✓ منتج محفوظ في القاعدة. تم اقتراح تاريخ الانتهاء تلقائياً ويمكنك تعديله.');camUI(false)}
+  else{setStat('شغّل الكاميرا لمسح الباركود والتاريخ، أو اضغط «صوّر بكاميرا الجوال».');startCam()}
+}
+function closeSheet(){stopCam();$('sheet').hidden=true;document.body.style.overflow=''}
+$('fab').onclick=function(){openSheet()};
+$('bX').onclick=closeSheet;
+$('chips').onclick=function(e){var b=e.target.closest('[data-d]');if(!b)return;var d=new Date();d.setDate(d.getDate()+ +b.dataset.d);$('ex').value=iso(d)};
+
+async function setBarcode(code){
+  code=toLatinDigits(code).replace(/\D/g,'');
+  $('bc').value=code;
+  var p=S.products[code];
+  if(p){
+    useProduct(p);
+    setStat('✓ تعرّفت على: '+p.name+' — الآن وجّه الكاميرا نحو تاريخ الانتهاء واضغط «التقاط التاريخ»');
+  }else{
+    var found=await lookupBarcodeOnline(code);
+    if(!found)setStat('✓ تم مسح الباركود ('+code+') — اكتب اسم المنتج أو التقط صورة لتاريخ الانتهاء.');
+  }
+}
+
+$('bc').onchange=function(){var c=toLatinDigits(this.value).trim();this.value=c;var p=S.products[c];if(p)useProduct(p)};
+$('nm').oninput=function(){var p=byName(this.value.trim());if(p){if(!$('bc').value&&p.barcode)$('bc').value=p.barcode;showLife(p)}};
+
+$('bAdd').onclick=function(){
+  var name=$('nm').value.trim(),ex=$('ex').value,bc=toLatinDigits($('bc').value).trim(),qty=Math.max(1,parseInt($('qty').value,10)||1);
+  if(!name){toast('اكتب اسم المنتج أولاً');$('nm').focus();return}
+  if(!ex){toast('اختر تاريخ الانتهاء أو استخدم أزرار المدة السريعة');return}
+  S.items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:name,barcode:bc,expiry:ex,qty:qty,added:iso(new Date())});
+  var k=bc||'n:'+name,old=S.products[k]||{},life=daysLeft(ex);
+  if(bc&&S.products['n:'+name]){old=Object.assign({},S.products['n:'+name],old);delete S.products['n:'+name]}
+  S.products[k]={name:name,barcode:bc,life:life>0?life:(old.life||0),n:(old.n||0)+1};
+  save();render();
+  $('bc').value=$('nm').value=$('ex').value='';$('qty').value='1';showLife(null);
+  setStat('✓ تمت إضافة «'+name+'» وحُفظ في القاعدة! يمكنك إضافة منتج آخر أو إغلاق النافذة.');
+  toast('تم حفظ «'+name+'» في الثلاجة والقاعدة ✓');
+};
+
+/* ============================================================================
+   8. تشغيل الكاميرا + مسح الباركود + قراءة تاريخ الانتهاء بالذكاء الضوئي (OCR)
+   ============================================================================ */
+var vid=$('vid'),stream=null,timer=null,zx=null,live=false,last='';
+function camUI(on){
+  live=on;
+  $('cam').hidden=!on&&$('snapPreview').hidden;
+  $('vid').hidden=!on;
+  $('bCam').innerHTML=on?ic('x')+' إيقاف الكاميرا':ic('cam')+' تشغيل الكاميرا';
+  $('bShot').hidden=!on;
+}
+function stopCam(){
+  clearInterval(timer);timer=null;
+  if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}
+  if(zx){try{zx.reset()}catch(e){}zx=null}
+  vid.srcObject=null;camUI(false);
+}
+function onCode(c){if(!c||c===last)return;last=c;if(navigator.vibrate)navigator.vibrate(60);setBarcode(c)}
+
+async function startCam(){
+  stopCam();last='';$('snapPreview').hidden=true;camUI(true);
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    stopCam();
+    setStat('المتصفح الحالي لا يدعم البث المباشر؛ اضغط «صوّر بكاميرا الجوال / صورة» لالتقاط الباركود والتاريخ.');
+    return;
+  }
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
+    vid.srcObject=stream;await vid.play();
+    if('BarcodeDetector' in window){
+      var det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']});
+      timer=setInterval(async function(){
+        try{var r=await det.detect(vid);if(r&&r.length)onCode(r[0].rawValue)}catch(e){}
+      },350);
+    }else if(window.ZXing){
+      zx=new ZXing.BrowserMultiFormatReader();
+      timer=setInterval(async function(){
+        try{
+          if(!vid.videoWidth)return;
+          var c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;
+          c.getContext('2d').drawImage(vid,0,0);
+          var img=new Image();img.src=c.toDataURL('image/jpeg',0.8);
+          await new Promise(function(r){img.onload=r});
+          var res=await zx.decodeFromImageElement(img);
+          if(res&&res.getText())onCode(res.getText());
+        }catch(e){}
+      },600);
+    }
+  }catch(e){
+    stopCam();
+    setStat('تعذّر فتح الكاميرا المباشرة (تأكد من إعطاء صلاحية الكاميرا أو فتح الرابط عبر https). يمكنك فوراً الضغط على «صوّر بكاميرا الجوال / صورة».');
+  }
+}
+
+$('bCam').onclick=function(){live?stopCam():startCam()};
+
+function snapCanvas(src,w,h){
+  var k=Math.min(1,1400/Math.max(w,h)),c=document.createElement('canvas');
+  c.width=Math.round(w*k);c.height=Math.round(h*k);
+  c.getContext('2d').drawImage(src,0,0,c.width,c.height);
+  return c;
+}
+
+$('bShot').onclick=function(){
+  if(vid.videoWidth){
+    var c=snapCanvas(vid,vid.videoWidth,vid.videoHeight);
+    analyzeImageCanvas(c);
+  }
+};
+$('bNat').onclick=function(){$('file').click()};
+$('file').onchange=async function(){
+  var f=this.files[0];this.value='';if(!f)return;
+  try{
+    var b=await createImageBitmap(f);
+    var c=snapCanvas(b,b.width,b.height);
+    $('snapPreview').src=c.toDataURL('image/jpeg',0.88);
+    $('snapPreview').hidden=false;
+    stopCam();
+    $('cam').hidden=false;
+    analyzeImageCanvas(c);
+  }catch(e){toast('تعذّر قراءة الصورة المختارة')}
+};
+
+// تحليل النص المستخرج من الصورة للعثور على تاريخ الانتهاء بجميع الصيغ الشائعة
+function extractExpiryFromText(rawText){
+  var txt=toLatinDigits(rawText).replace(/\s+/g,' ');
+  var nowYr=new Date().getFullYear();
+  var candidates=[];
+
+  // الصيغة الأولى: YYYY/MM/DD أو YYYY-MM-DD
+  var r1=/\b(20[2-3]\d)[\/\-\.](0?[1-9]|1[0-2])[\/\-\.](0?[1-9]|[12]\d|3[01])\b/g,m;
+  while((m=r1.exec(txt))!==null){
+    candidates.push(m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0'));
+  }
+  // الصيغة الثانية: DD/MM/YYYY أو DD-MM-YYYY
+  var r2=/\b(0?[1-9]|[12]\d|3[01])[\/\-\.](0?[1-9]|1[0-2])[\/\-\.](20[2-3]\d)\b/g;
+  while((m=r2.exec(txt))!==null){
+    candidates.push(m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0'));
+  }
+  // الصيغة الثالثة: DD/MM/YY (سنة من رقمين)
+  var r3=/\b(0?[1-9]|[12]\d|3[01])[\/\-\.](0?[1-9]|1[0-2])[\/\-\.](2[4-9]|3[0-5])\b/g;
+  while((m=r3.exec(txt))!==null){
+    candidates.push('20'+m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0'));
+  }
+  // الصيغة الرابعة: MM/YYYY (شهر وسنة فقط -> نختار آخر يوم في الشهر)
+  var r4=/\b(0?[1-9]|1[0-2])[\/\-\.](20[2-3]\d)\b/g;
+  while((m=r4.exec(txt))!==null){
+    var yr=+m[2],mo=+m[1],lastDay=new Date(yr,mo,0).getDate();
+    candidates.push(yr+'-'+String(mo).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0'));
+  }
+
+  if(!candidates.length)return null;
+  // إذا وُجد تاريخان على العبوة (إنتاج وانتهاء)، نختار التاريخ الأحدث لأنه تاريخ الانتهاء
+  candidates.sort();
+  var best=candidates[candidates.length-1];
+  if(+best.slice(0,4)<nowYr-1)return null;
+  return best;
+}
+
+// فحص الصورة لاستخراج الباركود وتاريخ الانتهاء معاً
+async function analyzeImageCanvas(canvas){
+  setStat('⏳ جارٍ فحص الصورة واستخراج الباركود وتاريخ الانتهاء…');
+  var got=[];
+
+  try{
+    if('BarcodeDetector' in window){
+      var det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']});
+      var bcs=await det.detect(canvas);
+      if(bcs&&bcs.length&&bcs[0].rawValue){
+        await setBarcode(bcs[0].rawValue);
+        got.push('الباركود');
+      }
+    }else if(window.ZXing){
+      var reader=new ZXing.BrowserMultiFormatReader();
+      var img=new Image();img.src=canvas.toDataURL('image/jpeg',0.9);
+      await new Promise(function(r){img.onload=r});
+      var zres=await reader.decodeFromImageElement(img);
+      if(zres&&zres.getText()){
+        await setBarcode(zres.getText());
+        got.push('الباركود');
+      }
+    }
+  }catch(e){}
+
+  try{
+    if(window.Tesseract){
+      var ocr=await Tesseract.recognize(canvas,'eng',{logger:function(){}});
+      var text=(ocr&&ocr.data&&ocr.data.text)||'';
+      var expDate=extractExpiryFromText(text);
+      if(expDate){
+        $('ex').value=expDate;
+        got.push('تاريخ الانتهاء ('+expDate+')');
+      }
+      if(!$('bc').value){
+        var numMatch=toLatinDigits(text).match(/\b(\d{13}|\d{12}|\d{8})\b/);
+        if(numMatch&&okEAN(numMatch[1])){
+          await setBarcode(numMatch[1]);
+          got.push('الباركود');
+        }
+      }
+    }
+  }catch(e){}
+
+  if(got.length){
+    setStat('✓ تمت قراءة: '+got.join(' + ')+' — راجع البيانات ثم اضغط «إضافة للثلاجة».');
+    toast('تم التقاط '+got.join(' و '));
+  }else{
+    setStat('لم يتضح التاريخ أو الباركود في الصورة؛ قرّب الكاميرا من الأرقام بوضوح أو اختر التاريخ من الأزرار السريعة.');
+  }
+}
+
+/* ============================================================================
+   9. نظام الإشعارات وتصدير تذكيرات تقويم الجوال (.ics)
+   ============================================================================ */
+function getExpiringItems(){
+  var limit=S.warnDays||3;
+  return S.items.map(function(i){return{item:i,d:daysLeft(i.expiry)}}).filter(function(x){return x.d<=limit}).sort(function(a,b){return a.d-b.d});
+}
+
+function updateBellUI(){
+  var btn=$('bBell'),txt=$('bellTxt');
+  if(!('Notification' in window)){
+    txt.textContent='تنبيهات التقويم';
+    return;
+  }
+  if(Notification.permission==='granted'){
+    btn.className='pill-btn on';
+    txt.textContent='التنبيهات مفعّلة ✓';
+  }else if(Notification.permission==='denied'){
+    btn.className='pill-btn warn';
+    txt.textContent='التنبيهات محظورة';
+  }else{
+    btn.className='pill-btn';
+    txt.textContent='تفعيل التنبيهات';
+  }
+}
+
+function sendAppNotification(title,body){
+  if('Notification' in window&&Notification.permission==='granted'){
+    try{
+      new Notification(title,{body:body,dir:'rtl',lang:'ar'});
+      toast('🔔 '+body);
+      return true;
+    }catch(e){}
+  }
+  toast('🔔 '+title+': '+body);
+  return false;
+}
+
+function checkAndNotifyExpiring(forceToast){
+  var exp=getExpiringItems();
+  if(!exp.length){
+    if(forceToast)sendAppNotification('الثلاجة الذكية','كل منتجاتك سليمة ولا يوجد منتج قريب الانتهاء حالياً ✓');
+    return;
+  }
+  var names=exp.slice(0,3).map(function(x){return x.item.name+' ('+label(x.d)+')'}).join('، ');
+  var msg='لديك '+exp.length+' منتج يحتاج انتباهك: '+names;
+  var todayKey='notified-'+iso(new Date());
+  if(forceToast||sessionStorage.getItem(todayKey)!=='1'){
+    try{sessionStorage.setItem(todayKey,'1')}catch(e){}
+    sendAppNotification('تنبيه صلاحية المنتجات 🧊',msg);
+  }
+}
+
+async function requestNotifPermission(){
+  if(!('Notification' in window)){
+    toast('متصفحك يدعم تنبيهات التقويم (.ics) بدلاً من إشعارات الويب المباشرة');
+    tab('settings');
+    return;
+  }
+  try{
+    var perm=await Notification.requestPermission();
+    updateBellUI();
+    if(perm==='granted'){
+      toast('تم تفعيل الإشعارات بنجاح ✓');
+      checkAndNotifyExpiring(true);
+    }else{
+      toast('يرجى السماح بالإشعارات من إعدادات المتصفح أو استخدام تذكير التقويم');
+    }
+  }catch(e){
+    tab('settings');
+  }
+}
+
+$('bBell').onclick=function(){
+  if('Notification' in window&&Notification.permission!=='granted')requestNotifPermission();
+  else tab('settings');
+};
+$('bReqNotif').onclick=requestNotifPermission;
+$('bTestNotif').onclick=function(){checkAndNotifyExpiring(true)};
+$('warnDays').onchange=function(){S.warnDays=Number(this.value)||3;save();render();toast('تم تحديث مدة التنبيه المسبق')};
+
+// إنشاء وتحميل ملف تقويم (.ics) يعمل مع تقويم آيفون وأندرويد لتنبيهك قبل انتهاء المنتج بيوم
+function downloadICS(itemsList){
+  var targets=itemsList||S.items;
+  if(!targets.length){toast('أضف منتجات أولاً لإنشاء تذكير تقويم');return}
+  var lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//SmartFridge//AR','CALSCALE:GREGORIAN'];
+  targets.forEach(function(it){
+    var dStr=String(it.expiry).replace(/-/g,'');
+    lines.push(
+      'BEGIN:VEVENT',
+      'UID:'+it.id+'@smartfridge',
+      'DTSTART;VALUE=DATE:'+dStr,
+      'SUMMARY:انتهاء صلاحية: '+it.name,
+      'DESCRIPTION:تذكير من تطبيق الثلاجة الذكية بانتهاء صلاحية '+it.name,
+      'BEGIN:VALARM',
+      'TRIGGER:-PT24H',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:غداً تنتهي صلاحية '+it.name,
+      'END:VALARM',
+      'END:VEVENT'
+    );
+  });
+  lines.push('END:VCALENDAR');
+  var blob=new Blob([lines.join('\r\n')],{type:'text/calendar;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='smart-fridge-reminders.ics';
+  document.body.appendChild(a);a.click();a.remove();
+  toast('تم تحميل ملف تذكيرات التقويم ✓ افتحه لإضافته لتقويم جوالك');
+}
+$('bExportICS').onclick=function(){downloadICS(S.items)};
+$('bCalQuick').onclick=function(){
+  var urgent=getExpiringItems().map(function(x){return x.item});
+  downloadICS(urgent.length?urgent:S.items);
+};
+
+/* ============================================================================
+   10. النسخ الاحتياطي واستيراد البيانات (JSON)
+   ============================================================================ */
+$('bExp').onclick=function(){
+  try{
+    var blob=new Blob([JSON.stringify(pack(),null,2)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='smart-fridge-backup-'+iso(new Date())+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    toast('تم تصدير النسخة الاحتياطية بنجاح ✓');
+  }catch(e){toast('تعذّر التصدير')}
+};
+$('bImp').onclick=function(){$('impf').click()};
+$('impf').onchange=async function(){
+  var f=this.files[0];this.value='';if(!f)return;
+  try{
+    var n=norm(JSON.parse(await f.text())),ids={};
+    Object.assign(S.products,n.products);
+    S.items.forEach(function(i){ids[i.id]=1});
+    n.items.forEach(function(i){if(i&&i.id&&i.name&&i.expiry&&!ids[i.id])S.items.push(i)});
+    save();render();toast('تم استيراد البيانات ودمجها بالقاعدة ✓');
+  }catch(e){toast('ملف النسخة الاحتياطية غير صالح')}
+};
+
+/* ============================================================================
+   11. قسم نصائح التغذية التفاعلي (نصائح ذكية + تحدي صح/خطأ + عداد الماء)
+   ============================================================================ */
+var NUTRITION_TIPS=[
+  {cat:'storage',icon:'🥛',title:'مكان الحليب والألبان في الثلاجة',body:'لا تضع الحليب في باب الثلاجة لأن حرارته تتغير مع كل فتح؛ ضعه في الرف الأوسط أو الخلفي ليبقى طازجاً فترة أطول وبكامل قيمته الغذائية.'},
+  {cat:'energy',icon:'🥚',title:'البيض وجبة متكاملة صباحاً',body:'تناول بيضتين في الإفطار يمنحك بروتيناً عالي الجودة وكولين ينشط الذاكرة والتركيز ويقلل الشعور بالجوع طوال النهار.'},
+  {cat:'immunity',icon:'🍊',title:'فيتامين C والحديد معاً',body:'تناول مصدر لفيتامين C (مثل البرتقال أو الليمون أو الفلفل الرومي) مع الوجبات يرفع امتصاص الحديد في الجسم إلى 3 أضعاف.'},
+  {cat:'fitness',icon:'🥣',title:'الزبادي اليوناني واللبن قبل النوم',body:'يحتوي الزبادي واللبن على بروتين الكازين بطيء الامتصاص وبكتيريا نافعة (بروبيوتيك) تحسن الهضم وتساعد على استشفاء العضلات أثناء النوم.'},
+  {cat:'storage',icon:'🍞',title:'تجميد الخبز فائدة صحية مزدوجة',body:'حفظ الخبز في الفريزر ثم تسخينه عند الحاجة يمنع تعفنه ويحول جزءاً من نشوياته إلى «نشا مقاوم» يبطئ ارتفاع السكر في الدم.'},
+  {cat:'immunity',icon:'🥗',title:'قاعدة الألوان الثلاثة في طبقك',body:'احرص على وجود 3 ألوان طبيعية على الأقل من الخضار أو الفاكهة في وجبتك لضمان تنوع مضادات الأكسدة والفيتامينات.'},
+  {cat:'fitness',icon:'🍗',title:'حفظ الدجاج واللحوم بأمان',body:'ضع الدجاج المبرد في الرف السفلي تماماً داخل وعاء مغلق لمنع تسرب أي سوائل للأطعمة الجاهزة للأكل، واستهلكه خلال يومين إلى 3 أيام.'},
+  {cat:'energy',icon:'💧',title:'الماء قبل القهوة صباحاً',body:'شرب كوب ماء فاتر فور الاستيقاظ يعوض جفاف ساعات النوم وينشط الدورة الدموية والأيض قبل تناول القهوة أو الشاي.'}
+];
+
+var QUIZ_QUESTIONS=[
+  {q:'وضع الحليب في باب الثلاجة هو المكان الأفضل لحفظه من التلف.',a:false,exp:'خطأ! باب الثلاجة هو الأكثر تعرضاً للهواء الدافئ؛ الرف الأوسط الداخلي أكثر برودة وثباتاً للحليب.'},
+  {q:'تجميد الخبز ثم تحميصه يقلل من سرعة رفعه لسكر الدم مقارنة بالخبز الطازج.',a:true,exp:'صح! التجميد ثم التسخين يحول جزءاً من النشويات إلى «نشا مقاوم» صديق للهضم ومستوى السكر.'},
+  {q:'البيض المسلوق يعيش في الثلاجة مدة أطول من البيض النيء غير المطبوخ.',a:false,exp:'خطأ! سلق البيض يزيل الطبقة الواقية الطبيعية عن القشرة، لذا يُستهلك المسلوق خلال أسبوع بينما النيء يعيش من 3 إلى 5 أسابيع.'},
+  {q:'شرب عصير البرتقال أو الليمون مع الوجبة يزيد امتصاص الحديد من الطعام.',a:true,exp:'صح! فيتامين C يحول الحديد النباتي إلى صيغة يسهل على الجسم امتصاصها بفعالية عالية.'},
+  {q:'غسل الدجاج النيء بالماء تحت الصنبور يقضي على البكتيريا تماماً.',a:false,exp:'خطأ! غسل الدجاج النيء ينشر رذاذ البكتيريا حول الحوض؛ الطهي الجيد بالحرارة هو ما يقضي على البكتيريا تماماً.'}
+];
+
+function buildSmartFridgeTip(){
+  if(!S.items.length)return'أضف منتجات لثلاجتك ليقترح عليك التطبيق أفكاراً صحية لاستغلالها قبل انتهاء صلاحيتها!';
+  var sorted=S.items.slice().sort(function(a,b){return daysLeft(a.expiry)-daysLeft(b.expiry)});
+  var first=sorted[0],d=daysLeft(first.expiry),nm=first.name;
+  if(/حليب|لبن|زبادي/.test(nm)){
+    return'لديك «'+nm+'» ('+label(d)+') — غني بالكالسيوم والبروتين! يمكنك استخدامه اليوم في سموذي صحي مع الشوفان أو الفواكه، أو تتبيلة صحية للدجاج المشوي.';
+  }
+  if(/بيض/.test(nm)){
+    return'لديك «'+nm+'» ('+label(d)+') — مصدر ممتاز للبروتين الكامل وفيتامين D؛ جرب تحضير أومليت بالخضار لوجبة مشبعة وسريعة.';
+  }
+  if(/دجاج|لحم|سمك/.test(nm)){
+    return'تنبيه صحي: «'+nm+'» ('+label(d)+') — يُنصح بطهيه بالفرن أو القلاية الهوائية مع الأعشاب والليمون للحصول على بروتين صافي قليل الدهون.';
+  }
+  if(/عصير|برتقال|فواكه|تفاح|موز/.test(nm)){
+    return'لديك «'+nm+'» ('+label(d)+') — غني بالفيتامينات ومضادات الأكسدة، تناوله في النهار لرفع طاقتك الطبيعية ومناعتك.';
+  }
+  return'أقرب منتج لديك هو «'+nm+'» ('+label(d)+') — استهلاكه أولاً وفق قاعدة (الأقدم يُستهلك أولاً FIFO) يحميك من الهدر الغذائي ويحافظ على القيمة الغذائية الطازجة!';
+}
+
+function renderWater(){
+  var todayIso=iso(new Date());
+  if(S.waterDate!==todayIso){S.waterDate=todayIso;S.water=0}
+  var w=S.water||0;
+  $('waterTxt').textContent=w+' / 8 أكواب ('+(w*250)+' مل)';
+  var html='';
+  for(var i=1;i<=8;i++){
+    html+='<button class="cup'+(i<=w?' on':'')+'" data-cup="'+i+'" aria-label="كوب '+i+'">💧</button>';
+  }
+  $('waterCups').innerHTML=html;
+}
+
+$('waterCups').onclick=function(e){
+  var b=e.target.closest('[data-cup]');
+  if(!b)return;
+  var n=+b.dataset.cup;
+  S.water=(S.water===n)?n-1:n;
+  S.waterDate=iso(new Date());
+  save();renderWater();
+  if(S.water===8)toast('🎉 أحسنت! أكملت هدف شرب الماء اليومي (2 لتر)');
+};
+
+function renderQuiz(){
+  var qObj=QUIZ_QUESTIONS[quizIdx%QUIZ_QUESTIONS.length];
+  $('quizQ').textContent=qObj.q;
+  $('quizFeedback').hidden=true;
+  $('quizScoreBadge').textContent='نقاطك الصحية: '+(S.score||0)+' 🌟';
+}
+
+function answerQuiz(userChoice){
+  var qObj=QUIZ_QUESTIONS[quizIdx%QUIZ_QUESTIONS.length];
+  var fb=$('quizFeedback');
+  fb.hidden=false;
+  if(userChoice===qObj.a){
+    fb.className='quiz-ans ok';
+    fb.textContent='🎉 إجابة صحيحة! '+qObj.exp;
+    S.score=(S.score||0)+10;
+    save();
+    $('quizScoreBadge').textContent='نقاطك الصحية: '+S.score+' 🌟';
+  }else{
+    fb.className='quiz-ans bad';
+    fb.textContent='💡 المعلومة الصحيحة: '+qObj.exp;
+  }
+}
+
+$('bQuizTrue').onclick=function(){answerQuiz(true)};
+$('bQuizFalse').onclick=function(){answerQuiz(false)};
+$('bNextQuiz').onclick=function(){quizIdx=(quizIdx+1)%QUIZ_QUESTIONS.length;renderQuiz()};
+
+function renderTips(){
+  $('smartFridgeTip').textContent=buildSmartFridgeTip();
+  renderWater();
+  renderQuiz();
+  var cats=[['all','الكل'],['storage','حفظ الطعام 🧊'],['energy','طاقة ونشاط ⚡'],['immunity','مناعة وصحة 🛡️'],['fitness','رشاقة وبروتين 💪']];
+  $('tipSeg').innerHTML=cats.map(function(c){
+    return'<button data-tc="'+c[0]+'"'+(tipCat===c[0]?' class="on"':'')+'>'+c[1]+'</button>';
+  }).join('');
+  var list=NUTRITION_TIPS.filter(function(t){return tipCat==='all'||t.cat===tipCat});
+  $('tipsList').innerHTML=list.map(function(t){
+    return'<div class="card" style="margin-bottom:10px"><h3>'+t.icon+' '+esc(t.title)+'</h3><p style="margin:0;color:var(--ink)">'+esc(t.body)+'</p></div>';
+  }).join('');
+}
+
+$('tipSeg').onclick=function(e){
+  var b=e.target.closest('[data-tc]');
+  if(b){tipCat=b.dataset.tc;renderTips()}
+};
+
+$('bRandTip').onclick=function(){
+  var r=NUTRITION_TIPS[Math.floor(Math.random()*NUTRITION_TIPS.length)];
+  toast(r.icon+' '+r.title+': '+r.body);
+};
+
+/* ============================================================================
+   12. بدء التشغيل الأولي عند فتح الصفحة
+   ============================================================================ */
+$('today').textContent=new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long'});
+camUI(false);
+render();
+setTimeout(function(){checkAndNotifyExpiring(false)},1200);
+</script>
+</body>
+</html>
+
+```
